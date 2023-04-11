@@ -54,6 +54,8 @@ pub struct Config {
     pub aoai_endpoint: Option<String>,
     /// Azure OpenAI model deployment name
     pub aoai_deployment: Option<String>,
+    /// Azure OpenAI - is this a chat-only model?
+    pub aoai_use_chat: Option<bool>,
     /// Openai organization id
     pub organization_id: Option<String>,
     /// Openai model
@@ -96,6 +98,7 @@ impl Default for Config {
             api_key: None,
             aoai_endpoint: None,
             aoai_deployment: None,
+            aoai_use_chat: None,
             organization_id: None,
             model_name: None,
             temperature: None,
@@ -230,6 +233,17 @@ impl Config {
             Some((endpoint.to_string(), deployment.to_string()))
         } else {
             None
+        }
+    }
+
+    pub fn use_chat_api(&self) -> bool {
+        if self.get_aoai_endpoint().is_none() {
+            // If we're using OpenAI's API, always use the chat API
+            true
+        } else {
+            // If we're using Azure OpenAI, then use don't use the chat API unless we're on a model
+            // that only supports it.
+            self.aoai_use_chat.unwrap_or(false)
         }
     }
 
@@ -582,6 +596,12 @@ fn create_config_file(config_path: &Path) -> Result<()> {
             .prompt()
             .map_err(text_map_err)?;
         raw_config.push_str(&format!("aoai_deployment: {deployment}\n"));
+
+        let use_chat: bool = Confirm::new("Is that a chat-only model (e.g. GPT-4 preview)?")
+            .with_default(false)
+            .prompt()
+            .map_err(text_map_err)?;
+        raw_config.push_str(&format!("aoai_use_chat: {use_chat}\n"));
     }
 
     let ans = Confirm::new("Use proxy?")

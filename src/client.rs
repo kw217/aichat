@@ -92,7 +92,7 @@ impl ChatGptClient {
             handler.text(&self.config.read().echo_messages(content))?;
             return Ok(());
         }
-        let is_aoai = self.config.read().aoai_endpoint.is_some();
+        let chat_api = self.config.read().use_chat_api();
         let builder = self.request_builder(content, true)?;
         let res = builder.send().await?;
         if !res.status().is_success() {
@@ -109,10 +109,10 @@ impl ChatGptClient {
                 break;
             } else {
                 let data: Value = serde_json::from_str(&chunk)?;
-                let text = if is_aoai {
-                    &data["choices"][0]["text"]
-                } else {
+                let text = if chat_api {
                     &data["choices"][0]["delta"]["content"]
+                } else {
+                    &data["choices"][0]["text"]
                 };
                 let text = text.as_str().unwrap_or_default();
                 if text.is_empty() || text == "<|im_end|>" {
@@ -146,12 +146,25 @@ impl ChatGptClient {
         let (builder, mut body) =
             if let Some((endpoint, deployment)) = self.config.read().get_aoai_endpoint() {
                 // Azure OpenAI: https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/reference
-                let url = format!(
-                    "{endpoint}/openai/deployments/{deployment}/completions?api-version=2022-12-01"
-                );
-                let body = json!({
-                    "prompt": Config::render_messages(&messages),
-                });
+
+                let (url, body) = if self.config.read().use_chat_api() {
+                    let url = format!(
+                        "{endpoint}/openai/deployments/{deployment}/chat/completions?api-version=2023-03-15-preview"
+                    );
+                    let body = json!({
+                        "messages": &messages,
+                    });
+
+                    (url, body)
+                } else {
+                    let url = format!(
+                        "{endpoint}/openai/deployments/{deployment}/completions?api-version=2022-12-01"
+                    );
+                    let body = json!({
+                        "prompt": Config::render_messages(&messages),
+                    });
+                    (url, body)
+                };
 
                 let builder = self.build_client()?.post(url).header("api-key", api_key);
 
