@@ -143,48 +143,49 @@ impl ChatGptClient {
         let (api_key, organization_id) = self.config.read().get_api_key();
         let messages = self.config.read().build_messages(content)?;
 
-        let (builder, mut body) =
-            if let Some((endpoint, deployment)) = self.config.read().get_aoai_endpoint() {
-                // Azure OpenAI: https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/reference
+        let (builder, mut body) = if let Some((endpoint, deployment)) =
+            self.config.read().get_aoai_endpoint()
+        {
+            // Azure OpenAI: https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/reference
 
-                let (url, body) = if self.config.read().use_chat_api() {
-                    let url = format!(
+            let (url, body) = if self.config.read().use_chat_api() {
+                let url = format!(
                         "{endpoint}/openai/deployments/{deployment}/chat/completions?api-version=2023-03-15-preview"
                     );
-                    let body = json!({
-                        "messages": &messages,
-                    });
-
-                    (url, body)
-                } else {
-                    let url = format!(
-                        "{endpoint}/openai/deployments/{deployment}/completions?api-version=2022-12-01"
-                    );
-                    let body = json!({
-                        "prompt": Config::render_messages(&messages),
-                    });
-                    (url, body)
-                };
-
-                let builder = self.build_client()?.post(url).header("api-key", api_key);
-
-                (builder, body)
-            } else {
-                // OpenAI: https://platform.openai.com/docs/api-reference/chat
-                let (model, _) = self.config.read().get_model();
                 let body = json!({
-                    "model": model,
-                    "messages": messages,
+                    "messages": &messages,
                 });
 
-                let mut builder = self.build_client()?.post(API_URL).bearer_auth(api_key);
-
-                if let Some(organization_id) = organization_id {
-                    builder = builder.header("OpenAI-Organization", organization_id);
-                }
-
-                (builder, body)
+                (url, body)
+            } else {
+                let url = format!(
+                    "{endpoint}/openai/deployments/{deployment}/completions?api-version=2022-12-01"
+                );
+                let body = json!({
+                    "prompt": Config::render_messages(&messages),
+                });
+                (url, body)
             };
+
+            let builder = self.build_client()?.post(url).header("api-key", api_key);
+
+            (builder, body)
+        } else {
+            // OpenAI: https://platform.openai.com/docs/api-reference/chat
+            let (model, _) = self.config.read().get_model();
+            let body = json!({
+                "model": model,
+                "messages": messages,
+            });
+
+            let mut builder = self.build_client()?.post(API_URL).bearer_auth(api_key);
+
+            if let Some(organization_id) = organization_id {
+                builder = builder.header("OpenAI-Organization", organization_id);
+            }
+
+            (builder, body)
+        };
 
         if let Some(v) = self.config.read().get_temperature() {
             body.as_object_mut()

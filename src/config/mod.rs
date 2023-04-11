@@ -385,6 +385,11 @@ impl Config {
         let api_key = mask_text(&api_key, 3, 4);
         let aoai_endpoint = self.aoai_endpoint.clone().unwrap_or("-".into());
         let aoai_deployment = self.aoai_deployment.clone().unwrap_or("-".into());
+        let aoai_use_chat = self
+            .aoai_use_chat
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or("-".into());
         let organization_id = organization_id
             .map(|v| mask_text(&v, 3, 4))
             .unwrap_or("-".into());
@@ -395,6 +400,7 @@ impl Config {
             ("api_key", api_key),
             ("aoai_endpoint", aoai_endpoint.to_string()),
             ("aoai_deployment", aoai_deployment.to_string()),
+            ("aoai_use_chat", aoai_use_chat),
             ("organization_id", organization_id),
             ("model", self.model.0.to_string()),
             ("temperature", temperature),
