@@ -241,9 +241,9 @@ impl Config {
             // If we're using OpenAI's API, always use the chat API
             true
         } else {
-            // If we're using Azure OpenAI, then use don't use the chat API unless we're on a model
-            // that only supports it.
-            self.aoai_use_chat.unwrap_or(false)
+            // If we're using Azure OpenAI, then use chat API unless we're on an
+            // older model that doesn't support it.
+            self.aoai_use_chat.unwrap_or(true)
         }
     }
 
@@ -603,8 +603,8 @@ fn create_config_file(config_path: &Path) -> Result<()> {
             .map_err(text_map_err)?;
         raw_config.push_str(&format!("aoai_deployment: {deployment}\n"));
 
-        let use_chat: bool = Confirm::new("Is that a chat-only model (e.g. GPT-4 preview)?")
-            .with_default(false)
+        let use_chat: bool = Confirm::new("Use chat API (not available for older models)?")
+            .with_default(true)
             .prompt()
             .map_err(text_map_err)?;
         raw_config.push_str(&format!("aoai_use_chat: {use_chat}\n"));
